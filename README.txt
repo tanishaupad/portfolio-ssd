@@ -3,17 +3,17 @@
 This repository contains a small portfolio + assignment demos for CS6.302 (Software System Development, Monsoon 2025). It includes interactive web demos (jigsaw puzzle, Stoplight game, data-dictionary generator, 3D bowling) and a small tracking utility.
 
 Live demos
-- https://tanishaupad.github.io/portfolio-ssd/  
-- https://tanishaupad.github.io/portfolio-ssd/newssd.html  
-- https://tanishaupad.github.io/portfolio-ssd/Q3/jigsaw.html  
-- https://tanishaupad.github.io/portfolio-ssd/Q4/nash.html  
-- https://tanishaupad.github.io/portfolio-ssd/Q5/data_dict.html  
-- https://tanishaupad.github.io/portfolio-ssd/Q7/bowling.html
+- Q1: https://tanishaupad.github.io/portfolio-ssd/  
+- Q2: https://tanishaupad.github.io/portfolio-ssd/newssd.html  
+- Q3: https://tanishaupad.github.io/portfolio-ssd/Q3/jigsaw.html  
+- Q4: https://tanishaupad.github.io/portfolio-ssd/Q4/nash.html  
+- Q5: https://tanishaupad.github.io/portfolio-ssd/Q5/data_dict.html  
+- Q7: https://tanishaupad.github.io/portfolio-ssd/Q7/bowling.html
 
 Files
 - [index.html](index.html) — personal profile page with photo [IMG_20250712_092117_032.webp](IMG_20250712_092117_032.webp)  
 - [newssd.html](newssd.html) — course site / syllabus (CS6.302)  
-- [track.js](track.js) — small event tracker that logs clicks & views to the console  
+-  Q6: [track.js](track.js) — small event tracker that logs clicks & views to the console  
 - [Q3/jigsaw.html](Q3/jigsaw.html) — Jigsaw puzzle demo (image slicing + drag/drop)  
 - [Q4/nash.html](Q4/nash.html) — Stoplight game (Nash equilibrium demo)  
 - [Q5/data_dict.html](Q5/data_dict.html) — Data Dictionary generator + preview / export  
