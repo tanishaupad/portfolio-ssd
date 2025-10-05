@@ -23,6 +23,7 @@
 
 </head>
 <body>
+  <script src="track.js"></script>
   <h1>Jigsaw Puzzle (rectangular pieces)</h1>
   <div class="controls">
     <label for="difficulty">Difficulty: </label>
@@ -207,6 +208,6 @@
     piecesContainer.addEventListener('dragover',ev=>ev.preventDefault());
     piecesContainer.addEventListener('drop',ev=>{ev.preventDefault();const pid=ev.dataTransfer.getData('text/plain');const fromSlot=board.querySelector(`.slot img[data-id="${pid}"]`);if(fromSlot){const ps=fromSlot.parentElement;ps.innerHTML='';if(Number(fromSlot.dataset.correct)===Number(ps.dataset.index))placedCount=Math.max(0,placedCount-1);}const pData=window._pieceMap[pid];if(pData){const img=document.createElement('img');img.src=pData.img;img.draggable=true;img.dataset.id=pData.id;img.dataset.correct=pData.correctIndex;img.style.width='80px';img.addEventListener('dragstart',ev=>ev.dataTransfer.setData('text/plain',pData.id));img.addEventListener('click',()=>{if(selectedPieceId===pData.id){selectedPieceId=null;img.style.outline='';}else{Array.from(piecesContainer.querySelectorAll('img')).forEach(x=>x.style.outline='');selectedPieceId=pData.id;img.style.outline='3px solid #4caf50';}});piecesContainer.appendChild(img);}checkComplete();});
   </script>
-  <script src="track.js"></script>
+  
 </body>
 </html>
