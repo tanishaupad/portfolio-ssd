@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stoplight Game - Nash Equilibrium</title>
+    <style>
+        /* Main container styling with gradient background */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        
+        /* Game container with card-like appearance */
+        .game-container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 900px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        /* Title styling */
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        
+        /* Subtitle for Nash Equilibrium explanation */
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-style: italic;
+        }
+        
+        /* Info box explaining the game */
+        .info-box {
+            background: #f0f7ff;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin-bottom: 30px;
+            border-radius: 5px;
+        }
+        
+        /* Player sections container */
+        .players-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        /* Individual player card styling */
+        .player-section {
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #ddd;
+        }
+        
+        /* Human player highlight */
+        .player-section.human {
+            border-color: #667eea;
+        }
+        
+        /* Computer player highlight */
+        .player-section.computer {
+            border-color: #764ba2;
+        }
+        
+        /* Player name header */
+        .player-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        
+        /* Button container for game actions */
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        /* Base button styling */
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            flex: 1;
+        }
+        
+        /* Stop button (red) */
+        .btn-stop {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .btn-stop:hover {
+            background: #c0392b;
+            transform: translateY(-2px);
+        }
+        
+        /* Go button (green) */
+        .btn-go {
+            background: #2ecc71;
+            color: white;
+        }
+        
+        .btn-go:hover {
+            background: #27ae60;
+            transform: translateY(-2px);
+        }
+        
+        /* Random action button */
+        .btn-random {
+            background: #f39c12;
+            color: white;
+        }
+        
+        .btn-random:hover {
+            background: #d68910;
+        }
+        
+        /* Play button */
+        .btn-play {
+            background: #667eea;
+            color: white;
+            margin: 20px auto;
+            display: block;
+            width: 200px;
+        }
+        
+        .btn-play:hover {
+            background: #5568d3;
+        }
+        
+        /* Reset button */
+        .btn-reset {
+            background: #95a5a6;
+            color: white;
+        }
+        
+        .btn-reset:hover {
+            background: #7f8c8d;
+        }
+        
+        /* Choice display styling */
+        .choice {
+            font-size: 18px;
+            margin: 15px 0;
+            padding: 10px;
+            background: white;
+            border-radius: 5px;
+            text-align: center;
+            font-weight: bold;
+        }
+        
+        /* Results section container */
+        .results {
+            background: #fff9e6;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 30px;
+            border: 2px solid #f39c12;
+        }
+        
+        /* Results hidden by default */
+        .results.hidden {
+            display: none;
+        }
+        
+        /* Outcome display styling */
+        .outcome {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+            margin: 15px 0;
+            text-align: center;
+        }
+        
+        /* Payoff matrix table styling */
+        .payoff-matrix {
+            margin: 20px 0;
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .payoff-matrix th, .payoff-matrix td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: center;
+        }
+        
+        .payoff-matrix th {
+            background: #667eea;
+            color: white;
+        }
+        
+        /* Nash equilibrium highlight in table */
+        .nash-eq {
+            background: #ffffcc;
+            font-weight: bold;
+        }
+        
+        /* Statistics display */
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .stat-box {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .stat-label {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <!-- Game title and description -->
+        <h1>🚦 Stoplight Game</h1>
+        <p class="subtitle">A Game Theory Demonstration of Nash Equilibrium</p>
+        
+        <!-- Explanation box for game rules -->
+        <div class="info-box">
+            <strong>Game Rules:</strong><br>
+            Both players choose to either STOP or GO at an intersection.<br>
+            • Both STOP: Safe but slow (0, 0)<br>
+            • One STOP, One GO: GO player benefits (−1, 1)<br>
+            • Both GO: Crash! (−10, −10) ⚠️<br>
+            <em>Nash Equilibrium: Both STOP is the safe equilibrium where neither player benefits from changing their choice alone.</em>
+        </div>
+        
+        <!-- Players section with choices -->
+        <div class="players-container">
+            <!-- Human player section -->
+            <div class="player-section human">
+                <h3>👤 Human Player</h3>
+                <div class="button-group">
+                    <!-- Button for human to choose STOP -->
+                    <button class="btn-stop" onclick="setHumanChoice('STOP')">STOP</button>
+                    <!-- Button for human to choose GO -->
+                    <button class="btn-go" onclick="setHumanChoice('GO')">GO</button>
+                </div>
+                <!-- Button to randomize human's choice -->
+                <button class="btn-random" onclick="randomizeHuman()">🎲 Random Choice</button>
+                <!-- Display current human choice -->
+                <div class="choice" id="humanChoice">No choice yet</div>
+            </div>
+            
+            <!-- Computer player section -->
+            <div class="player-section computer">
+                <h3>🤖 Computer Player</h3>
+                <!-- Button to randomize computer's choice -->
+                <button class="btn-random" onclick="randomizeComputer()">🎲 Random Choice</button>
+                <!-- Display current computer choice -->
+                <div class="choice" id="computerChoice">No choice yet</div>
+            </div>
+        </div>
+        
+        <!-- Play and reset buttons -->
+        <button class="btn-play" onclick="playGame()">▶️ Play Round</button>
+        <button class="btn-reset" onclick="resetGame()">🔄 Reset Game</button>
+        
+        <!-- Results section (hidden until game is played) -->
+        <div class="results hidden" id="results">
+            <h3>📊 Round Results</h3>
+            <!-- Display the outcome message -->
+            <div class="outcome" id="outcome"></div>
+            
+            <!-- Payoff matrix showing all possible outcomes -->
+            <h4>Payoff Matrix (Human, Computer)</h4>
+            <table class="payoff-matrix">
+                <tr>
+                    <th></th>
+                    <th>Computer STOP</th>
+                    <th>Computer GO</th>
+                </tr>
+                <tr>
+                    <th>Human STOP</th>
+                    <td class="nash-eq">(0, 0) ⭐ Nash Eq</td>
+                    <td>(-1, 1)</td>
+                </tr>
+                <tr>
+                    <th>Human GO</th>
+                    <td>(1, -1)</td>
+                    <td>(-10, -10)</td>
+                </tr>
+            </table>
+        </div>
+        
+        <!-- Statistics section -->
+        <div class="stats">
+            <div class="stat-box">
+                <div class="stat-value" id="totalRounds">0</div>
+                <div class="stat-label">Total Rounds</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="humanScore">0</div>
+                <div class="stat-label">Human Score</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="computerScore">0</div>
+                <div class="stat-label">Computer Score</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Game state variables stored in memory
+        let humanChoice = null;        // Stores human player's current choice
+        let computerChoice = null;     // Stores computer player's current choice
+        let totalRounds = 0;           // Counter for total games played
+        let humanScore = 0;            // Cumulative score for human player
+        let computerScore = 0;         // Cumulative score for computer player
+        
+        /**
+         * Sets the human player's choice to either STOP or GO
+         * @param {string} choice - Either 'STOP' or 'GO'
+         */
+        function setHumanChoice(choice) {
+            humanChoice = choice;  // Store the choice
+            // Update the display to show the selected choice
+            document.getElementById('humanChoice').textContent = `You chose: ${choice}`;
+            // Update styling based on choice (red for STOP, green for GO)
+            document.getElementById('humanChoice').style.background = 
+                choice === 'STOP' ? '#ffebee' : '#e8f5e9';
+        }
+        
+        /**
+         * Generates a random choice for the human player
+         * Uses Math.random() to simulate a 50/50 coin flip
+         */
+        function randomizeHuman() {
+            // Generate random number 0 or 1, then map to STOP or GO
+            const randomChoice = Math.random() < 0.5 ? 'STOP' : 'GO';
+            setHumanChoice(randomChoice);  // Set the randomly generated choice
+        }
+        
+        /**
+         * Generates a random choice for the computer player
+         * Uses Math.random() to simulate a 50/50 coin flip
+         */
+        function randomizeComputer() {
+            // Generate random number 0 or 1, then map to STOP or GO
+            computerChoice = Math.random() < 0.5 ? 'STOP' : 'GO';
+            // Update the display to show computer's choice
+            document.getElementById('computerChoice').textContent = 
+                `Computer chose: ${computerChoice}`;
+            // Update styling based on choice (red for STOP, green for GO)
+            document.getElementById('computerChoice').style.background = 
+                computerChoice === 'STOP' ? '#ffebee' : '#e8f5e9';
+        }
+        
+        /**
+         * Calculates payoffs based on both players' choices
+         * Implements the game theory payoff matrix
+         * @param {string} human - Human player's choice
+         * @param {string} computer - Computer player's choice
+         * @returns {Object} Object containing payoffs for both players
+         */
+        function calculatePayoffs(human, computer) {
+            // Both players chose STOP - Nash Equilibrium (safe but no gain)
+            if (human === 'STOP' && computer === 'STOP') {
+                return { humanPayoff: 0, computerPayoff: 0, outcome: 'Both stopped. Safe! (Nash Equilibrium)' };
+            }
+            // Human stops, computer goes - Computer benefits
+            else if (human === 'STOP' && computer === 'GO') {
+                return { humanPayoff: -1, computerPayoff: 1, outcome: 'You stopped, computer went. Computer wins!' };
+            }
+            // Human goes, computer stops - Human benefits
+            else if (human === 'GO' && computer === 'STOP') {
+                return { humanPayoff: 1, computerPayoff: -1, outcome: 'You went, computer stopped. You win!' };
+            }
+            // Both players chose GO - Worst outcome (crash)
+            else {
+                return { humanPayoff: -10, computerPayoff: -10, outcome: '💥 CRASH! Both went. Major loss for both!' };
+            }
+        }
+        
+        /**
+         * Main game logic - executes a round of the game
+         * Validates choices, calculates payoffs, updates scores and display
+         */
+        function playGame() {
+            // Validate that both players have made choices
+            if (!humanChoice || !computerChoice) {
+                alert('⚠️ Both players must make a choice first!');
+                return;  // Exit function if choices are missing
+            }
+            
+            // Calculate the payoffs based on both choices
+            const result = calculatePayoffs(humanChoice, computerChoice);
+            
+            // Update cumulative scores
+            humanScore += result.humanPayoff;
+            computerScore += result.computerPayoff;
+            totalRounds++;  // Increment round counter
+            
+            // Display the outcome message with payoffs
+            document.getElementById('outcome').innerHTML = `
+                ${result.outcome}<br>
+                Payoffs: Human = ${result.humanPayoff}, Computer = ${result.computerPayoff}
+            `;
+            
+            // Show the results section (was hidden initially)
+            document.getElementById('results').classList.remove('hidden');
+            
+            // Update statistics display
+            updateStats();
+        }
+        
+        /**
+         * Updates the statistics display with current game data
+         * Shows total rounds played and cumulative scores
+         */
+        function updateStats() {
+            document.getElementById('totalRounds').textContent = totalRounds;
+            document.getElementById('humanScore').textContent = humanScore;
+            document.getElementById('computerScore').textContent = computerScore;
+        }
+        
+        /**
+         * Resets the entire game to initial state
+         * Clears all choices, scores, and hides results
+         */
+        function resetGame() {
+            // Reset all game state variables to initial values
+            humanChoice = null;
+            computerChoice = null;
+            totalRounds = 0;
+            humanScore = 0;
+            computerScore = 0;
+            
+            // Reset display elements to default state
+            document.getElementById('humanChoice').textContent = 'No choice yet';
+            document.getElementById('humanChoice').style.background = 'white';
+            document.getElementById('computerChoice').textContent = 'No choice yet';
+            document.getElementById('computerChoice').style.background = 'white';
+            
+            // Hide the results section
+            document.getElementById('results').classList.add('hidden');
+            
+            // Reset statistics display to zero
+            updateStats();
+        }
+    </script>
+</body>
+</html>
