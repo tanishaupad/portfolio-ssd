@@ -1,149 +1,326 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Jigsaw Puzzle Maker</title>
-<style>
-  body {
-    font-family: Quicksand, sans-serif;
-    background: #fafafa;
-    text-align: center;
-    margin: 0;
-    padding: 20px;
-  }
-  canvas {
-    border: 2px solid #333;
-    margin-top: 20px;
-    cursor: grab;
-  }
-  select, button, input[type=file] {
-    margin: 5px;
-    padding: 5px 10px;
-  }
-  #controls {
-    margin-bottom: 10px;
-  }
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Jigsaw Puzzle (rectangular pieces)</title>
+  <style>
+    :root{--gap:8px}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,'Quicksand',sans-serif;margin:18px;color:#222}
+    h1{font-size:20px;margin:0 0 12px}
+    .controls{display:flex;gap:12px;align-items:center;margin-bottom:12px}
+    select,input[type=file],button{padding:8px;border-radius:8px;border:1px solid #ddd;background:#fff}
+    .wrap{display:flex;gap:12px}
+    .board{background:#f7f7f7;border:1px dashed #ddd;padding:12px;border-radius:10px;display:grid;align-items:center;justify-items:center}
+    .pieces{width:260px;min-height:200px;background:#fff;border:1px solid #eee;padding:10px;border-radius:10px;overflow:auto}
+    .piece{display:inline-block;margin:6px;border-radius:6px;box-shadow:0 4px 8px rgba(0,0,0,0.06);cursor:grab}
+    .slot{background:linear-gradient(180deg,#fff,#fafafa);border:1px dashed #ccc;border-radius:6px;display:flex;align-items:center;justify-content:center}
+    .slot.correct{border-style:solid;border-color:transparent}
+    .slot img{display:block;max-width:100%;height:auto;border-radius:4px}
+    .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);z-index:60}
+    .modal{background:#fff;padding:20px;border-radius:12px;min-width:260px;text-align:center}
+    .small{font-size:13px;color:#666}
+    button:disabled{opacity:0.5}
+  </style>
 </head>
 <body>
-  <h2>Single Page Jigsaw Puzzle</h2>
-  <div id="controls">
-    <input type="file" id="fileInput" accept="image/*" />
+  <h1>Jigsaw Puzzle (rectangular pieces)</h1>
+  <div class="controls">
+    <label for="difficulty">Difficulty: </label>
     <select id="difficulty">
-      <option value="5">5 pieces</option>
-      <option value="20">20 pieces</option>
-      <option value="40">40 pieces</option>
-      <option value="80">80 pieces</option>
-      <option value="100">100 pieces</option>
+      <option value="5">Very Easy — 5</option>
+      <option value="20">Easy — 20</option>
+      <option value="40" selected>Medium — 40</option>
+      <option value="80">Hard — 80</option>
+      <option value="100">Very Hard — 100</option>
     </select>
-    <button id="startBtn">Start Puzzle</button>
+    <input id="file" type="file" accept="image/*">
+    <button id="startBtn">Start / Reset</button>
+    <div class="small">Click a piece then click a slot to place (or drag & drop)</div>
   </div>
-  <canvas id="puzzleCanvas" width="600" height="600"></canvas>
+
+  <div class="wrap">
+    <div class="pieces" id="piecesContainer" aria-label="shuffled pieces">
+      <div class="small">Upload an image and press Start.</div>
+    </div>
+    <div id="boardContainer" style="flex:1;display:flex;align-items:center;justify-content:center;">
+      <div id="board" class="board" style="width:700px;height:500px;">Board will appear here</div>
+    </div>
+  </div>
+
+  <template id="slotTemplate">
+    <div class="slot" draggable="false"></div>
+  </template>
+
+  <div id="doneModal" class="overlay" style="display:none">
+    <div class="modal">
+      <h2>Congratulations — Puzzle complete 🎉</h2>
+      <p class="small">You placed all pieces correctly.</p>
+      <button id="closeDone">Close</button>
+    </div>
+  </div>
+
   <script>
-    const canvas = document.getElementById('puzzleCanvas');
-    const ctx = canvas.getContext('2d');
-    const fileInput = document.getElementById('fileInput');
+    // Utility: find factor rows x cols such that rows*cols = n, with rows <= cols and rows as large as possible <= sqrt(n)
+    function findGrid(n){
+      let r = Math.floor(Math.sqrt(n));
+      while(r > 1){ if(n % r === 0) break; r--; }
+      if(r <= 1) r = 1;
+      const c = Math.ceil(n / r);
+      return {rows: r, cols: c};
+    }
+
+    const fileInput = document.getElementById('file');
     const startBtn = document.getElementById('startBtn');
-    const difficultySelect = document.getElementById('difficulty');
+    const piecesContainer = document.getElementById('piecesContainer');
+    const board = document.getElementById('board');
+    const difficulty = document.getElementById('difficulty');
+    const doneModal = document.getElementById('doneModal');
+    const closeDone = document.getElementById('closeDone');
 
-    let img = new Image();
-    let pieces = [];
-    let gridSize = 2;
-    let pieceW, pieceH;
-    let draggingPiece = null;
-    let offsetX, offsetY;
-    let isLoaded = false;
+    let image = new Image();
+    let pieceImages = []; // {id, imgSrc, correctIndex}
+    let placedCount = 0;
+    let selectedPieceId = null;
 
-    fileInput.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        img = new Image();
-        img.onload = () => {
-          isLoaded = true;
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        };
-        img.src = ev.target.result;
+    fileInput.addEventListener('change', e=>{
+      const f = e.target.files && e.target.files[0];
+      if(!f) return;
+      const url = URL.createObjectURL(f);
+      image = new Image();
+      image.onload = ()=>{
+        // nothing yet, wait for start
       };
-      reader.readAsDataURL(file);
+      image.src = url;
     });
 
-    startBtn.addEventListener('click', () => {
-      if (!isLoaded) {
-        alert('Please upload an image first.');
-        return;
-      }
+    startBtn.addEventListener('click', ()=>{
+      if(!image || !image.complete){ alert('Please select an image file first.'); return; }
       startPuzzle();
     });
 
-    function startPuzzle() {
-      const totalPieces = parseInt(difficultySelect.value);
-      gridSize = Math.round(Math.sqrt(totalPieces));
-      pieceW = canvas.width / gridSize;
-      pieceH = canvas.height / gridSize;
+    function startPuzzle(){
+      const n = parseInt(difficulty.value,10);
+      const grid = findGrid(n);
+      const rows = grid.rows, cols = grid.cols;
+      // exact count
+      const total = rows * cols;
 
-      pieces = [];
-      for (let y = 0; y < gridSize; y++) {
-        for (let x = 0; x < gridSize; x++) {
-          const piece = {
-            correctX: x * pieceW,
-            correctY: y * pieceH,
-            x: Math.random() * (canvas.width - pieceW),
-            y: Math.random() * (canvas.height - pieceH),
-          };
-          pieces.push(piece);
+      // create pieces by cropping using canvas
+      pieceImages = [];
+      const iw = image.naturalWidth, ih = image.naturalHeight;
+      const pieceW = Math.floor(iw / cols);
+      const pieceH = Math.floor(ih / rows);
+
+      // note: to ensure exact total pieces equals n, if total>n we will merge last cells into fewer pieces (rare with our factor approach)
+      let index = 0;
+      for(let r=0;r<rows;r++){
+        for(let c=0;c<cols;c++){
+          if(index >= n) break; // in rare cases
+          const sx = c * pieceW;
+          const sy = r * pieceH;
+          // adjust last column / row to include remaining pixels
+          const sw = (c===cols-1) ? (iw - sx) : pieceW;
+          const sh = (r===rows-1) ? (ih - sy) : pieceH;
+          const cvs = document.createElement('canvas');
+          cvs.width = sw; cvs.height = sh;
+          const ctx = cvs.getContext('2d');
+          ctx.drawImage(image, sx, sy, sw, sh, 0,0, sw, sh);
+          const dataUrl = cvs.toDataURL();
+          pieceImages.push({id: 'p'+index, img: dataUrl, correctIndex: index, size:{w:sw,h:sh}});
+          index++;
         }
       }
-      drawPieces();
+
+      // Shuffle pieces
+      const shuffled = pieceImages.slice();
+      for(let i=shuffled.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [shuffled[i],shuffled[j]]=[shuffled[j],shuffled[i]]; }
+
+      // Render board grid of slots sized to fit inside board element while preserving aspect ratio
+      renderBoard(rows, cols, pieceImages.length, shuffled);
     }
 
-    function drawPieces() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      pieces.forEach((p) => {
-        ctx.drawImage(
-          img,
-          p.correctX * (img.width / canvas.width),
-          p.correctY * (img.height / canvas.height),
-          pieceW * (img.width / canvas.width),
-          pieceH * (img.height / canvas.height),
-          p.x,
-          p.y,
-          pieceW,
-          pieceH
-        );
+    function renderBoard(rows, cols, totalPieces, shuffledPieces){
+      // clear
+      piecesContainer.innerHTML=''; board.innerHTML='';
+
+      // compute board size from board element
+      const boardRect = board.getBoundingClientRect();
+      const maxW = board.clientWidth - 20; // padding
+      const maxH = board.clientHeight - 20;
+
+      // Determine the display cell size based on original image aspect ratio
+      const imgAspect = image.naturalWidth / image.naturalHeight;
+      // We'll fit the whole image inside board area while preserving aspect
+      let displayW = Math.min(maxW, Math.round(maxH * imgAspect));
+      let displayH = Math.round(displayW / imgAspect);
+
+      // create a container that keeps aspect ratio for the board
+      const container = document.createElement('div');
+      container.style.position = 'relative';
+      container.style.width = displayW+'px';
+      container.style.height = displayH+'px';
+      container.style.display = 'grid';
+      container.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+      container.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+      container.style.gap = '4px';
+      container.style.placeItems = 'stretch';
+      container.style.boxSizing = 'border-box';
+
+      // create slots
+      for(let i=0;i<totalPieces;i++){
+        const slot = document.createElement('div');
+        slot.className = 'slot';
+        slot.dataset.index = i;
+        slot.style.minWidth = '0';
+        slot.style.minHeight = '0';
+        slot.style.overflow = 'hidden';
+        slot.style.display = 'flex';
+        slot.style.alignItems = 'center';
+        slot.style.justifyContent = 'center';
+        slot.style.padding = '0';
+        slot.style.boxSizing = 'border-box';
+        slot.addEventListener('dragover', ev=>{ ev.preventDefault(); slot.style.outline='2px solid #4caf50'; });
+        slot.addEventListener('dragleave', ev=>{ slot.style.outline=''; });
+        slot.addEventListener('drop', ev=>{ ev.preventDefault(); slot.style.outline=''; const pid = ev.dataTransfer.getData('text/plain'); placePieceInSlot(pid, slot); });
+        slot.addEventListener('click', ()=>{ // click placement: if a piece selected, place it here
+          if(selectedPieceId) placePieceInSlot(selectedPieceId, slot);
+        });
+        container.appendChild(slot);
+      }
+
+      board.appendChild(container);
+
+      // render shuffled pieces in the side container
+      shuffledPieces.forEach(p=>{
+        const img = document.createElement('img');
+        img.src = p.img;
+        img.draggable = true;
+        img.className = 'piece';
+        img.style.width = Math.min(120, 160) + 'px';
+        img.dataset.id = p.id;
+        img.dataset.correct = p.correctIndex;
+        img.addEventListener('dragstart', ev=>{ ev.dataTransfer.setData('text/plain', p.id); });
+        img.addEventListener('click', ()=>{ // select/deselect
+          if(selectedPieceId === p.id){ selectedPieceId = null; img.style.outline=''; }
+          else{
+            // clear others
+            Array.from(piecesContainer.querySelectorAll('img')).forEach(x=>x.style.outline='');
+            selectedPieceId = p.id; img.style.outline='3px solid #4caf50';
+          }
+        });
+        // store mapping from id to img element
+        piecesContainer.appendChild(img);
       });
+
+      // store a mapping in DOM for quick lookup
+      // We'll create hidden map by setting window._pieceMap
+      window._pieceMap = {};
+      shuffledPieces.forEach(p=> window._pieceMap[p.id] = p);
+      placedCount = 0; selectedPieceId = null;
     }
 
-    canvas.addEventListener('mousedown', (e) => {
-      const rect = canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      for (let i = pieces.length - 1; i >= 0; i--) {
-        const p = pieces[i];
-        if (x > p.x && x < p.x + pieceW && y > p.y && y < p.y + pieceH) {
-          draggingPiece = p;
-          offsetX = x - p.x;
-          offsetY = y - p.y;
-          break;
+    // place piece id into slot element
+    function placePieceInSlot(pieceId, slotEl){
+      if(!pieceId) return;
+      const pieceData = window._pieceMap && window._pieceMap[pieceId];
+      if(!pieceData) return;
+      const slotIndex = Number(slotEl.dataset.index);
+      // if slot already has an img, swap it back to piecesContainer
+      if(slotEl.querySelector('img')){
+        const existing = slotEl.querySelector('img');
+        // move existing back to pieces container
+        piecesContainer.appendChild(existing);
+        existing.style.width = Math.min(120,160)+'px';
+        existing.draggable = true;
+        existing.dataset.id = existing.dataset.id || ('p-back');
+        // if it was correct before, decrement placedCount
+        if(existing.dataset.correct && Number(existing.dataset.correct) === Number(slotEl.dataset.index)){
+          placedCount = Math.max(0, placedCount-1);
         }
       }
+
+      // remove the piece element from side container if present
+      const pieceEl = Array.from(piecesContainer.querySelectorAll('img')).find(x=>x.dataset.id === pieceId);
+      if(pieceEl) piecesContainer.removeChild(pieceEl);
+
+      // create a new img for the slot (so piece disappears from pool)
+      const img = document.createElement('img');
+      img.src = pieceData.img;
+      img.draggable = true;
+      img.dataset.id = pieceId;
+      img.dataset.correct = pieceData.correctIndex;
+      img.style.width = '100%';
+      img.addEventListener('dragstart', ev=>{ ev.dataTransfer.setData('text/plain', pieceId); });
+      img.addEventListener('click', ()=>{ // click to pick it back up
+        // put back into piecesContainer
+        piecesContainer.appendChild(img);
+        img.style.width = Math.min(120,160)+'px';
+        slotEl.innerHTML = '';
+        // if it was correct, decrement
+        if(Number(img.dataset.correct) === Number(slotEl.dataset.index)) placedCount = Math.max(0, placedCount-1);
+        checkComplete();
+      });
+
+      slotEl.innerHTML = '';
+      slotEl.appendChild(img);
+
+      // check correctness
+      if(Number(pieceData.correctIndex) === Number(slotIndex)){
+        // snap and mark
+        slotEl.classList.add('correct');
+        placedCount++;
+      } else {
+        slotEl.classList.remove('correct');
+      }
+
+      // clear selection
+      selectedPieceId = null;
+      Array.from(piecesContainer.querySelectorAll('img')).forEach(x=>x.style.outline='');
+
+      checkComplete();
+    }
+
+    function checkComplete(){
+      // total pieces equals number of slots in board
+      const totalSlots = board.querySelectorAll('.slot').length;
+      if(placedCount === totalSlots){
+        showDone();
+      }
+    }
+
+    function showDone(){
+      doneModal.style.display = 'flex';
+    }
+    closeDone.addEventListener('click', ()=>{ doneModal.style.display = 'none'; });
+
+    // small usability: allow dropping pieces back into pool
+    piecesContainer.addEventListener('dragover', ev=>{ ev.preventDefault(); });
+    piecesContainer.addEventListener('drop', ev=>{ ev.preventDefault(); const pid = ev.dataTransfer.getData('text/plain');
+      // find if a slot currently holds it, remove it
+      const fromSlot = board.querySelector(`.slot img[data-id="${pid}"]`);
+      if(fromSlot){
+        const parentSlot = fromSlot.parentElement;
+        parentSlot.innerHTML = '';
+        // if it was correct, decrement
+        if(Number(fromSlot.dataset.correct) === Number(parentSlot.dataset.index)) placedCount = Math.max(0, placedCount-1);
+      }
+      // recreate a small piece element in pool
+      const pData = window._pieceMap && window._pieceMap[pid];
+      if(pData){
+        const img = document.createElement('img');
+        img.src = pData.img;
+        img.draggable = true; img.dataset.id = pData.id; img.dataset.correct = pData.correctIndex;
+        img.style.width = Math.min(120,160)+'px';
+        img.addEventListener('dragstart', ev=>{ ev.dataTransfer.setData('text/plain', pData.id); });
+        img.addEventListener('click', ()=>{ if(selectedPieceId===pData.id){ selectedPieceId=null; img.style.outline=''; } else{ Array.from(piecesContainer.querySelectorAll('img')).forEach(x=>x.style.outline=''); selectedPieceId=pData.id; img.style.outline='3px solid #4caf50'; } });
+        piecesContainer.appendChild(img);
+      }
+      checkComplete();
     });
 
-    canvas.addEventListener('mousemove', (e) => {
-      if (!draggingPiece) return;
-      const rect = canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      draggingPiece.x = x - offsetX;
-      draggingPiece.y = y - offsetY;
-      drawPieces();
-    });
-
-    canvas.addEventListener('mouseup', () => {
-      draggingPiece = null;
-    });
+    // allow keyboard Enter to start if image present
+    document.addEventListener('keydown', ev=>{ if(ev.key==='Enter'){ if(image && image.complete) startPuzzle(); } });
   </script>
 </body>
 </html>
