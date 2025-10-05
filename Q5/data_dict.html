@@ -256,7 +256,9 @@
             border-radius: 10px;
             padding: 20px;
             margin-top: 20px;
-            overflow-x: auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 15px;
         }
         
         .diagram-table {
@@ -264,10 +266,10 @@
             border: 2px solid #667eea;
             border-radius: 8px;
             padding: 15px;
-            margin: 10px;
-            display: inline-block;
             min-width: 200px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            break-inside: avoid;
+            page-break-inside: avoid;
         }
         
         .diagram-table-name {
@@ -332,7 +334,6 @@
     </style>
 </head>
 <body>
-    <script src="../track.js"></script>
     <div class="container">
         <div class="header">
             <h1>📊 Data Dictionary Generator</h1>
@@ -649,24 +650,31 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
                 `;
             });
             
-            // Generate relationship diagram
+            // Generate relationship diagram with grid layout for PDF compatibility
             html += `
-                <h2 style="text-align: center; color: #667eea; margin: 40px 0 20px;">Table Relationships</h2>
-                <div id="diagram">
+                <h2 style="text-align: center; color: #667eea; margin: 40px 0 20px; page-break-before: always;">Table Relationships</h2>
+                <div id="diagram" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 15px; margin-top: 20px;">
             `;
             
             currentSchema.tables.forEach(table => {
                 html += `
-                    <div class="diagram-table">
+                    <div class="diagram-table" style="break-inside: avoid;">
                         <div class="diagram-table-name">${table.name}</div>
                 `;
                 
                 table.columns.forEach(col => {
                     let className = '';
-                    if (col.primaryKey) className = 'diagram-pk';
-                    if (col.foreignKey) className = 'diagram-fk';
+                    let prefix = '';
+                    if (col.primaryKey) {
+                        className = 'diagram-pk';
+                        prefix = '🔑 ';
+                    }
+                    if (col.foreignKey) {
+                        className = 'diagram-fk';
+                        prefix = '🔗 ';
+                    }
                     
-                    html += `<div class="diagram-column ${className}">${col.name}</div>`;
+                    html += `<div class="diagram-column ${className}">${prefix}${col.name}</div>`;
                 });
                 
                 html += `</div>`;
@@ -674,13 +682,37 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
             
             html += `</div>`;
             
-            // Add relationships text
+            // Add relationships as a clear table format
             if (currentSchema.relationships && currentSchema.relationships.length > 0) {
-                html += `<h3 style="margin-top: 30px; color: #667eea;">Relationships:</h3><ul>`;
+                html += `
+                    <h3 style="margin-top: 30px; color: #667eea;">Foreign Key Relationships:</h3>
+                    <table class="columns-table" style="margin-top: 15px;">
+                        <thead>
+                            <tr>
+                                <th>From Table</th>
+                                <th>Column</th>
+                                <th>References</th>
+                                <th>To Table</th>
+                                <th>Column</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
                 currentSchema.relationships.forEach(rel => {
-                    html += `<li><strong>${rel.fromTable}.${rel.fromColumn}</strong> → <strong>${rel.toTable}.${rel.toColumn}</strong></li>`;
+                    html += `
+                        <tr>
+                            <td><strong>${rel.fromTable}</strong></td>
+                            <td>${rel.fromColumn}</td>
+                            <td style="text-align: center;">→</td>
+                            <td><strong>${rel.toTable}</strong></td>
+                            <td>${rel.toColumn}</td>
+                        </tr>
+                    `;
                 });
-                html += `</ul>`;
+                html += `
+                        </tbody>
+                    </table>
+                `;
             }
             
             html += `</div>`;
@@ -702,7 +734,7 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
     <title>${currentSchema.database || 'Database'} - Data Dictionary</title>
     <style>
         body { font-family: Arial, sans-serif; margin: 40px; }
-        .table-card { border: 2px solid #dee2e6; border-radius: 10px; margin-bottom: 20px; overflow: hidden; }
+        .table-card { border: 2px solid #dee2e6; border-radius: 10px; margin-bottom: 20px; overflow: hidden; page-break-inside: avoid; }
         .table-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; font-weight: 600; font-size: 1.2em; }
         .table-description { padding: 15px; background: #f8f9fa; border-bottom: 1px solid #dee2e6; }
         .columns-table { width: 100%; border-collapse: collapse; }
@@ -712,12 +744,16 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
         .badge-primary { background: #667eea; color: white; }
         .badge-warning { background: #ffc107; color: #333; }
         .badge-info { background: #17a2b8; color: white; }
-        #diagram { display: flex; flex-wrap: wrap; gap: 20px; margin-top: 20px; }
-        .diagram-table { background: white; border: 2px solid #667eea; border-radius: 8px; padding: 15px; min-width: 200px; }
+        #diagram { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 15px; margin-top: 20px; padding: 20px; background: #f8f9fa; border: 2px solid #dee2e6; border-radius: 10px; }
+        .diagram-table { background: white; border: 2px solid #667eea; border-radius: 8px; padding: 15px; min-width: 200px; break-inside: avoid; page-break-inside: avoid; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
         .diagram-table-name { font-weight: 700; font-size: 1.1em; color: #667eea; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 2px solid #667eea; }
         .diagram-column { padding: 5px 0; font-size: 0.9em; }
         .diagram-pk { color: #dc3545; font-weight: 600; }
         .diagram-fk { color: #28a745; font-weight: 600; }
+        @media print {
+            body { margin: 20px; }
+            .table-card, .diagram-table { page-break-inside: avoid; }
+        }
     </style>
 </head>
 <body>
@@ -753,6 +789,5 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
             html2pdf().set(opt).from(element).save();
         }
     </script>
-    
 </body>
 </html>
